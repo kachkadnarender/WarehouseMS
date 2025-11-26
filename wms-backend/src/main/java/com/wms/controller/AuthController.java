@@ -6,6 +6,7 @@ import com.wms.dto.RegisterRequest;
 import com.wms.entity.User;
 import com.wms.repository.UserRepository;
 import com.wms.security.JwtUtil;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -16,7 +17,7 @@ import java.util.Set;
 
 @RestController
 @RequestMapping("/api/auth")
-@CrossOrigin(origins = "http://localhost:3000")
+@CrossOrigin(origins = "http://localhost:5173")
 public class AuthController {
 
     private final AuthenticationManager authManager;
@@ -53,17 +54,26 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public LoginResponse login(@RequestBody LoginRequest req) {
+    public ResponseEntity<LoginResponse> login(@RequestBody LoginRequest req) {
         try {
             Authentication auth = authManager.authenticate(
                 new UsernamePasswordAuthenticationToken(req.getUsername(), req.getPassword())
             );
+
             String username = auth.getName();
-            String role = auth.getAuthorities().iterator().next().getAuthority().replace("ROLE_", "");
+            String role = auth.getAuthorities()
+                    .iterator()
+                    .next()
+                    .getAuthority()
+                    .replace("ROLE_", "");
+
             String token = jwtUtil.generateToken(username, role);
-            return new LoginResponse(token, username, role);
+
+            return ResponseEntity.ok(new LoginResponse(token, username, role));
         } catch (Exception e) {
-            return new LoginResponse(null, null, null);
+            return ResponseEntity
+                    .status(401)
+                    .body(new LoginResponse(null, null, null));
         }
     }
 }

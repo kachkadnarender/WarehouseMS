@@ -14,37 +14,50 @@ export function AuthProvider({ children }) {
   const API_URL = '/api/auth'; // Uses Vite proxy
 
   const login = async (username, password) => {
-  try {
-    const res = await axios.post(`${API_URL}/login`, { username, password });
-    const data = res.data;
+    try {
+      const res = await axios.post(`${API_URL}/login`, { username, password });
+      const data = res.data;
 
-    // ADD THIS CHECK
-    if (!data.token || data.token === "Invalid credentials") {
+      // Ensure we have a token
+      if (!data.token) {
+        return { success: false, error: 'Invalid credentials' };
+      }
+
+      // Store token + user info
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('username', data.username);
+      localStorage.setItem('role', data.role);
+
+      // Set axios default header
+      axios.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
+
+      // Set React state
+      setUser({ username: data.username, role: data.role });
+
+      return { success: true };
+    } catch (err) {
       return { success: false, error: 'Invalid credentials' };
     }
-
-    localStorage.setItem('token', data.token);
-    setUser({ username: data.username, role: data.role });
-    axios.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
-    return { success: true };
-  } catch (err) {
-    return { success: false, error: 'Invalid credentials' };
-  }
-};
+  };
 
   const logout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('username');
+    localStorage.removeItem('role');
     delete axios.defaults.headers.common['Authorization'];
     setUser(null);
   };
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-    if (token) {
+    const username = localStorage.getItem('username');
+    const role = localStorage.getItem('role');
+
+    if (token && username && role) {
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      // You can validate token with backend later
-      setUser({ username: 'admin', role: 'ADMIN' }); // mock
+      setUser({ username, role });
     }
+
     setLoading(false);
   }, []);
 

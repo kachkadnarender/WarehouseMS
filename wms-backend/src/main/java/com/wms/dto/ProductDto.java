@@ -1,31 +1,21 @@
-package com.wms.entity;
+package com.wms.dto;
 
-import jakarta.persistence.*;
-
-@Entity
-@Table(
-    name = "products",
-    uniqueConstraints = @UniqueConstraint(columnNames = "sku")
-)
-public class Product {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+public class ProductDto {
     private Long id;
-
-    @Column(nullable = false)
     private String name;
-
-    @Column(nullable = false, unique = true)
     private String sku;
+    private int stockQuantity;
+    private Double price;   // <--- IMPORTANT
 
-    @Column(nullable = false)
-    private int stockQuantity = 0;
+    public ProductDto() {}
 
-    @Column(nullable = false)
-    private Double price;   // <--- NOT NULL, so we MUST always set this
-
-    // --- GETTERS & SETTERS ---
+    public ProductDto(Long id, String name, String sku, int stockQuantity, Double price) {
+        this.id = id;
+        this.name = name;
+        this.sku = sku;
+        this.stockQuantity = stockQuantity;
+        this.price = price;
+    }
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
