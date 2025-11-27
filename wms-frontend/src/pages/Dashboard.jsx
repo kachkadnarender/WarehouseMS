@@ -1,6 +1,7 @@
 import { useAuth } from '../context/AuthContext';
 import { useEffect, useState } from 'react';
 import axios from 'axios';
+import { Link } from 'react-router-dom';
 
 export default function Dashboard() {
   const { user, logout } = useAuth();
@@ -38,35 +39,58 @@ export default function Dashboard() {
     0
   );
 
+  // PO / SO summary
+  const [poCount, setPoCount] = useState(0);
+  const [soCount, setSoCount] = useState(0);
+  const [orderSummaryError, setOrderSummaryError] = useState('');
+
   // ------------ LOAD PRODUCTS ------------
 
   const loadProducts = async () => {
-    if (!isAdmin) {
+  setLoading(true);
+  setLoadError('');
+
+  try {
+    const res = await axios.get('/api/products');
+    setProducts(res.data);
+  } catch (err) {
+    if (err.response?.status === 403) {
       setLoadError('You are not allowed to view products (ADMIN only).');
-      setLoading(false);
+    } else if (err.response?.status === 401) {
+      setLoadError('Unauthorized. Please log in again.');
+    } else {
+      setLoadError('Failed to load products (check token / server).');
+    }
+  } finally {
+    setLoading(false);
+  }
+};
+
+
+  // ------------ LOAD PO/SO SUMMARY ------------
+
+  const loadOrderSummary = async () => {
+    if (!isAdmin) {
+      setPoCount(0);
+      setSoCount(0);
       return;
     }
-
     try {
-      setLoading(true);
-      const res = await axios.get('/api/products');
-      setProducts(res.data);
-      setLoadError('');
+      setOrderSummaryError('');
+      const [poRes, soRes] = await Promise.all([
+        axios.get('/api/purchase-orders'),
+        axios.get('/api/sales-orders'),
+      ]);
+      setPoCount(Array.isArray(poRes.data) ? poRes.data.length : 0);
+      setSoCount(Array.isArray(soRes.data) ? soRes.data.length : 0);
     } catch (err) {
-      if (err.response?.status === 403) {
-        setLoadError('You are not allowed to view products (ADMIN only).');
-      } else if (err.response?.status === 401) {
-        setLoadError('Unauthorized. Please log in again.');
-      } else {
-        setLoadError('Failed to load products (check token / server).');
-      }
-    } finally {
-      setLoading(false);
+      setOrderSummaryError('Failed to load purchase/sales orders summary.');
     }
   };
 
   useEffect(() => {
     loadProducts();
+    loadOrderSummary();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAdmin]);
 
@@ -207,11 +231,12 @@ export default function Dashboard() {
     }
 
     try {
-      const endpoint = movementType === 'IN'
-        ? '/api/stock-movements/in'
-        : '/api/stock-movements/out';
+      const endpoint =
+        movementType === 'IN'
+          ? '/api/stock-movements/in'
+          : '/api/stock-movements/out';
 
-      const res = await axios.post(endpoint, null, {
+      await axios.post(endpoint, null, {
         params: {
           productId: selectedProductId,
           quantity: qty,
@@ -229,7 +254,6 @@ export default function Dashboard() {
       await loadProducts();
       // Reload movement history for this product
       await loadMovementHistory(selectedProductId);
-
     } catch (err) {
       const msg = err.response?.data || 'Failed to adjust stock.';
       setMovementError(msg);
@@ -251,7 +275,26 @@ export default function Dashboard() {
       <nav className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
-            <h1 className="text-2xl font-bold text-gray-800">WMS Dashboard</h1>
+            <div className="flex items-center gap-6">
+              <h1 className="text-2xl font-bold text-gray-800">WMS Dashboard</h1>
+              <div className="hidden md:flex gap-4 text-sm">
+                <Link to="/" className="text-indigo-600 font-semibold">
+                  Dashboard
+                </Link>
+                <Link
+                  to="/purchase-orders"
+                  className="text-gray-600 hover:text-gray-900"
+                >
+                  Purchase Orders
+                </Link>
+                <Link
+                  to="/sales-orders"
+                  className="text-gray-600 hover:text-gray-900"
+                >
+                  Sales Orders
+                </Link>
+              </div>
+            </div>
             <div className="flex items-center gap-4">
               <div className="text-sm text-right">
                 <div>
@@ -298,34 +341,73 @@ export default function Dashboard() {
 
         {/* INVENTORY SUMMARY CARDS */}
         {isAdmin && !loading && !loadError && (
-          <section className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="bg-white shadow rounded-lg p-4 border-l-4 border-blue-500">
-              <p className="text-xs uppercase text-gray-500">Total Products</p>
-              <p className="text-2xl font-bold text-gray-800 mt-1">
-                {totalProducts}
-              </p>
-            </div>
-            <div className="bg-white shadow rounded-lg p-4 border-l-4 border-green-500">
-              <p className="text-xs uppercase text-gray-500">Total Stock Units</p>
-              <p className="text-2xl font-bold text-gray-800 mt-1">
-                {totalStock}
-              </p>
-            </div>
-            <div className="bg-white shadow rounded-lg p-4 border-l-4 border-yellow-500">
-              <p className="text-xs uppercase text-gray-500">
-                Low Stock (&lt; {lowStockThreshold})
-              </p>
-              <p className="text-2xl font-bold text-gray-800 mt-1">
-                {lowStockCount}
-              </p>
-            </div>
-            <div className="bg-white shadow rounded-lg p-4 border-l-4 border-purple-500">
-              <p className="text-xs uppercase text-gray-500">Inventory Value (USD)</p>
-              <p className="text-2xl font-bold text-gray-800 mt-1">
-                {formatPrice(totalInventoryValue)}
-              </p>
-            </div>
-          </section>
+          <>
+            <section className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="bg-white shadow rounded-lg p-4 border-l-4 border-blue-500">
+                <p className="text-xs uppercase text-gray-500">Total Products</p>
+                <p className="text-2xl font-bold text-gray-800 mt-1">
+                  {totalProducts}
+                </p>
+              </div>
+              <div className="bg-white shadow rounded-lg p-4 border-l-4 border-green-500">
+                <p className="text-xs uppercase text-gray-500">Total Stock Units</p>
+                <p className="text-2xl font-bold text-gray-800 mt-1">
+                  {totalStock}
+                </p>
+              </div>
+              <div className="bg-white shadow rounded-lg p-4 border-l-4 border-yellow-500">
+                <p className="text-xs uppercase text-gray-500">
+                  Low Stock (&lt; {lowStockThreshold})
+                </p>
+                <p className="text-2xl font-bold text-gray-800 mt-1">
+                  {lowStockCount}
+                </p>
+              </div>
+              <div className="bg-white shadow rounded-lg p-4 border-l-4 border-purple-500">
+                <p className="text-xs uppercase text-gray-500">Inventory Value (USD)</p>
+                <p className="text-2xl font-bold text-gray-800 mt-1">
+                  {formatPrice(totalInventoryValue)}
+                </p>
+              </div>
+            </section>
+
+            <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-white shadow rounded-lg p-4 border-l-4 border-indigo-500">
+                <p className="text-xs uppercase text-gray-500">Purchase Orders</p>
+                <p className="text-2xl font-bold text-gray-800 mt-1">
+                  {poCount}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  <Link
+                    to="/purchase-orders"
+                    className="text-indigo-600 hover:underline"
+                  >
+                    View &amp; manage POs
+                  </Link>
+                </p>
+              </div>
+              <div className="bg-white shadow rounded-lg p-4 border-l-4 border-pink-500">
+                <p className="text-xs uppercase text-gray-500">Sales Orders</p>
+                <p className="text-2xl font-bold text-gray-800 mt-1">
+                  {soCount}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  <Link
+                    to="/sales-orders"
+                    className="text-pink-600 hover:underline"
+                  >
+                    View &amp; manage SOs
+                  </Link>
+                </p>
+              </div>
+            </section>
+
+            {orderSummaryError && (
+              <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 p-3 rounded-md text-sm">
+                {orderSummaryError}
+              </div>
+            )}
+          </>
         )}
 
         {/* PRODUCTS TABLE */}
@@ -581,7 +663,8 @@ export default function Dashboard() {
                 {/* MOVEMENT HISTORY TABLE */}
                 <div>
                   <h4 className="text-md font-semibold text-gray-800 mb-2">
-                    Movement History {selectedProductId && `(Product ID: ${selectedProductId})`}
+                    Movement History{' '}
+                    {selectedProductId && `(Product ID: ${selectedProductId})`}
                   </h4>
 
                   {movementHistoryLoading ? (
@@ -603,11 +686,21 @@ export default function Dashboard() {
                       <table className="min-w-full divide-y divide-gray-200 text-left text-sm">
                         <thead className="bg-gray-50">
                           <tr>
-                            <th className="px-4 py-2 font-medium text-gray-700">ID</th>
-                            <th className="px-4 py-2 font-medium text-gray-700">Type</th>
-                            <th className="px-4 py-2 font-medium text-gray-700">Quantity</th>
-                            <th className="px-4 py-2 font-medium text-gray-700">Reason</th>
-                            <th className="px-4 py-2 font-medium text-gray-700">Date &amp; Time</th>
+                            <th className="px-4 py-2 font-medium text-gray-700">
+                              ID
+                            </th>
+                            <th className="px-4 py-2 font-medium text-gray-700">
+                              Type
+                            </th>
+                            <th className="px-4 py-2 font-medium text-gray-700">
+                              Quantity
+                            </th>
+                            <th className="px-4 py-2 font-medium text-gray-700">
+                              Reason
+                            </th>
+                            <th className="px-4 py-2 font-medium text-gray-700">
+                              Date &amp; Time
+                            </th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200 bg-white">
@@ -627,7 +720,9 @@ export default function Dashboard() {
                               </td>
                               <td className="px-4 py-2">{m.quantity}</td>
                               <td className="px-4 py-2">{m.reason || '-'}</td>
-                              <td className="px-4 py-2">{formatDateTime(m.createdAt)}</td>
+                              <td className="px-4 py-2">
+                                {formatDateTime(m.createdAt)}
+                              </td>
                             </tr>
                           ))}
                         </tbody>
