@@ -10,13 +10,21 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
 
+  // Near-expiry products
+  const [nearExpiry, setNearExpiry] = useState([]);
+  const [nearExpiryLoading, setNearExpiryLoading] = useState(false);
+  const [nearExpiryError, setNearExpiryError] = useState('');
+
   // Product CRUD form
   const [form, setForm] = useState({
     id: null,
     name: '',
     sku: '',
-    stockQuantity: 0,
-    price: 0,
+    stockQuantity: '',
+    price: '',
+    locationCode: '',
+    perishable: false,
+    expiryDate: '',
   });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
@@ -27,6 +35,11 @@ export default function Dashboard() {
   const formatPrice = (value) => {
     if (value == null || isNaN(value)) return '$0.00';
     return `$${Number(value).toFixed(2)}`;
+  };
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '-';
+    return new Date(dateStr).toLocaleDateString();
   };
 
   // Inventory summary stats
@@ -47,25 +60,45 @@ export default function Dashboard() {
   // ------------ LOAD PRODUCTS ------------
 
   const loadProducts = async () => {
-  setLoading(true);
-  setLoadError('');
+    setLoading(true);
+    setLoadError('');
 
-  try {
-    const res = await axios.get('/api/products');
-    setProducts(res.data);
-  } catch (err) {
-    if (err.response?.status === 403) {
-      setLoadError('You are not allowed to view products (ADMIN only).');
-    } else if (err.response?.status === 401) {
-      setLoadError('Unauthorized. Please log in again.');
-    } else {
-      setLoadError('Failed to load products (check token / server).');
+    try {
+      const res = await axios.get('/api/products');
+      setProducts(res.data);
+    } catch (err) {
+      if (err.response?.status === 403) {
+        setLoadError('You are not allowed to view products (ADMIN only).');
+      } else if (err.response?.status === 401) {
+        setLoadError('Unauthorized. Please log in again.');
+      } else {
+        setLoadError('Failed to load products (check token / server).');
+      }
+    } finally {
+      setLoading(false);
     }
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
+  // ------------ LOAD NEAR-EXPIRY ------------
+
+  const loadNearExpiry = async () => {
+    if (!isAdmin) {
+      setNearExpiry([]);
+      return;
+    }
+    try {
+      setNearExpiryLoading(true);
+      setNearExpiryError('');
+      const res = await axios.get('/api/products/near-expiry', {
+        params: { days: 7 },
+      });
+      setNearExpiry(Array.isArray(res.data) ? res.data : []);
+    } catch (err) {
+      setNearExpiryError('Failed to load near-expiry products.');
+    } finally {
+      setNearExpiryLoading(false);
+    }
+  };
 
   // ------------ LOAD PO/SO SUMMARY ------------
 
@@ -91,6 +124,7 @@ export default function Dashboard() {
   useEffect(() => {
     loadProducts();
     loadOrderSummary();
+    loadNearExpiry();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAdmin]);
 
@@ -99,8 +133,11 @@ export default function Dashboard() {
       id: null,
       name: '',
       sku: '',
-      stockQuantity: 0,
-      price: 0,
+      stockQuantity: '',
+      price: '',
+      locationCode: '',
+      perishable: false,
+      expiryDate: '',
     });
     setSaveError('');
     setSuccessMessage('');
@@ -119,6 +156,9 @@ export default function Dashboard() {
       sku: form.sku,
       stockQuantity: Number(form.stockQuantity) || 0,
       price: Number(form.price) || 0,
+      locationCode: form.locationCode || null,
+      perishable: form.perishable,
+      expiryDate: form.expiryDate || null,
     };
 
     try {
@@ -140,6 +180,7 @@ export default function Dashboard() {
         setSuccessMessage('Product updated successfully.');
       }
       resetForm();
+      await loadNearExpiry();
     } catch (err) {
       const msg = err.response?.data || 'Failed to save product.';
       setSaveError(msg);
@@ -153,8 +194,11 @@ export default function Dashboard() {
       id: product.id,
       name: product.name,
       sku: product.sku,
-      stockQuantity: product.stockQuantity,
-      price: product.price ?? 0,
+      stockQuantity: product.stockQuantity ?? '',
+      price: product.price ?? '',
+      locationCode: product.locationCode || '',
+      perishable: product.perishable ?? false,
+      expiryDate: product.expiryDate || '',
     });
     setSaveError('');
     setSuccessMessage('');
@@ -166,6 +210,7 @@ export default function Dashboard() {
     try {
       await axios.delete(`/api/products/${id}`);
       setProducts((prev) => prev.filter((p) => p.id !== id));
+      await loadNearExpiry();
     } catch (err) {
       alert(err.response?.data || 'Failed to delete product.');
     }
@@ -328,7 +373,7 @@ export default function Dashboard() {
             Product &amp; Inventory Management
           </h2>
           <p className="text-sm text-gray-600">
-            Manage products, track inventory levels, adjust stock manually, and view stock movement history.
+            Manage products, track inventory levels, assign warehouse locations, mark perishable items, set expiry dates, and view stock movement history.
           </p>
         </div>
 
@@ -337,6 +382,55 @@ export default function Dashboard() {
           <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-md">
             This section is accessible only to <strong>ADMIN</strong> users.
           </div>
+        )}
+
+        {/* NEAR-EXPIRY SECTION */}
+        {isAdmin && (
+          <section className="bg-white rounded-lg shadow p-6 border-l-4 border-orange-400">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-semibold text-gray-800">
+                Near-Expiry Products (next 7 days)
+              </h3>
+            </div>
+
+            {nearExpiryLoading ? (
+              <p className="text-gray-500 text-sm">Checking expiry dates...</p>
+            ) : nearExpiryError ? (
+              <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-md text-sm">
+                {nearExpiryError}
+              </div>
+            ) : nearExpiry.length === 0 ? (
+              <p className="text-gray-500 text-sm">
+                No products are close to expiry in the next 7 days.
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {nearExpiry.map((p) => (
+                  <div
+                    key={p.id}
+                    className="border border-orange-200 bg-orange-50 rounded-md p-3 text-sm"
+                  >
+                    <div className="font-semibold text-gray-800">{p.name}</div>
+                    <div className="text-xs text-gray-600">
+                      SKU: <span className="font-mono">{p.sku}</span>
+                    </div>
+                    <div className="text-xs mt-1">
+                      Expiry:{' '}
+                      <span className="font-semibold text-orange-800">
+                        {formatDate(p.expiryDate)}
+                      </span>
+                    </div>
+                    <div className="text-xs">
+                      Stock:{' '}
+                      <span className="font-semibold">
+                        {p.stockQuantity}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
         )}
 
         {/* INVENTORY SUMMARY CARDS */}
@@ -436,6 +530,9 @@ export default function Dashboard() {
                     <th className="px-4 py-2 font-medium text-gray-700">SKU</th>
                     <th className="px-4 py-2 font-medium text-gray-700">Stock</th>
                     <th className="px-4 py-2 font-medium text-gray-700">Price</th>
+                    <th className="px-4 py-2 font-medium text-gray-700">Location</th>
+                    <th className="px-4 py-2 font-medium text-gray-700">Perishable</th>
+                    <th className="px-4 py-2 font-medium text-gray-700">Expiry Date</th>
                     <th className="px-4 py-2 font-medium text-gray-700">Status</th>
                     <th className="px-4 py-2 font-medium text-gray-700">Actions</th>
                   </tr>
@@ -443,6 +540,7 @@ export default function Dashboard() {
                 <tbody className="divide-y divide-gray-200 bg-white">
                   {products.map((p) => {
                     const isLowStock = (p.stockQuantity || 0) < lowStockThreshold;
+                    const isPerishable = !!p.perishable;
                     return (
                       <tr key={p.id} className={isLowStock ? 'bg-yellow-50' : ''}>
                         <td className="px-4 py-2">{p.id}</td>
@@ -451,6 +549,29 @@ export default function Dashboard() {
                         <td className="px-4 py-2">{p.stockQuantity}</td>
                         <td className="px-4 py-2">
                           {formatPrice(p.price)}
+                        </td>
+                        <td className="px-4 py-2">
+                          {p.locationCode || (
+                            <span className="text-gray-400 text-xs">Not set</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2">
+                          {isPerishable ? (
+                            <span className="text-xs px-2 py-1 rounded-full bg-orange-100 text-orange-800">
+                              Perishable
+                            </span>
+                          ) : (
+                            <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-700">
+                              Non-perishable
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2">
+                          {p.expiryDate ? (
+                            formatDate(p.expiryDate)
+                          ) : (
+                            <span className="text-gray-400 text-xs">N/A</span>
+                          )}
                         </td>
                         <td className="px-4 py-2">
                           {isLowStock ? (
@@ -463,21 +584,23 @@ export default function Dashboard() {
                             </span>
                           )}
                         </td>
-                        <td className="px-4 py-2 space-x-2">
-                          <button
-                            onClick={() => handleEdit(p)}
-                            className="px-3 py-1 text-xs bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                            disabled={!isAdmin}
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleDelete(p.id)}
-                            className="px-3 py-1 text-xs bg-red-600 text-white rounded-md hover:bg-red-700"
-                            disabled={!isAdmin}
-                          >
-                            Delete
-                          </button>
+                        <td className="px-4 py-2">
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              onClick={() => handleEdit(p)}
+                              className="px-3 py-1 text-xs bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                              disabled={!isAdmin}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleDelete(p.id)}
+                              className="px-3 py-1 text-xs bg-red-600 text-white rounded-md hover:bg-red-700"
+                              disabled={!isAdmin}
+                            >
+                              Delete
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -508,46 +631,119 @@ export default function Dashboard() {
 
             <form className="space-y-4" onSubmit={handleSubmit}>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <input
-                  type="text"
-                  placeholder="Product Name"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 outline-none"
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  required
-                />
-                <input
-                  type="text"
-                  placeholder="SKU (unique)"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 outline-none"
-                  value={form.sku}
-                  onChange={(e) => setForm({ ...form, sku: e.target.value })}
-                  required
-                />
-                <input
-                  type="number"
-                  min="0"
-                  placeholder="Stock Quantity"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 outline-none"
-                  value={form.stockQuantity}
-                  onChange={(e) =>
-                    setForm({ ...form, stockQuantity: e.target.value })
-                  }
-                  required
-                />
-                <div className="flex items-center gap-2">
-                  <span className="text-gray-600">$</span>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">
+                    Product Name
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. iPhone 16 Pro"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 outline-none"
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">
+                    SKU (unique)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. IPHONE16PRO"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 outline-none"
+                    value={form.sku}
+                    onChange={(e) => setForm({ ...form, sku: e.target.value })}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">
+                    Stock Quantity
+                  </label>
                   <input
                     type="number"
                     min="0"
-                    step="0.01"
-                    placeholder="Price (USD)"
+                    placeholder="Units in stock"
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 outline-none"
-                    value={form.price}
+                    value={form.stockQuantity}
                     onChange={(e) =>
-                      setForm({ ...form, price: e.target.value })
+                      setForm({ ...form, stockQuantity: e.target.value })
                     }
                     required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">
+                    Cost (USD)
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-600">$</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="e.g. 1299.99"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 outline-none"
+                      value={form.price}
+                      onChange={(e) =>
+                        setForm({ ...form, price: e.target.value })
+                      }
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">
+                    Location Code
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. RACK-A1-SHELF-2"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 outline-none"
+                    value={form.locationCode}
+                    onChange={(e) =>
+                      setForm({ ...form, locationCode: e.target.value })
+                    }
+                  />
+                </div>
+
+                <div className="flex items-center gap-2 mt-4 md:mt-6">
+                  <input
+                    id="perishable"
+                    type="checkbox"
+                    className="h-4 w-4 text-indigo-600 border-gray-300 rounded"
+                    checked={form.perishable}
+                    onChange={(e) =>
+                      setForm({ ...form, perishable: e.target.checked })
+                    }
+                  />
+                  <label
+                    htmlFor="perishable"
+                    className="text-sm text-gray-700 select-none"
+                  >
+                    Perishable item
+                  </label>
+                </div>
+
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">
+                    Expiry Date (optional, for perishable items)
+                  </label>
+                  <input
+                    type="date"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 outline-none"
+                    value={form.expiryDate}
+                    onChange={(e) =>
+                      setForm({ ...form, expiryDate: e.target.value })
+                    }
+                    disabled={!form.perishable}
                   />
                 </div>
               </div>

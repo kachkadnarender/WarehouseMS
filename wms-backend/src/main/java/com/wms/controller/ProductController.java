@@ -2,7 +2,6 @@ package com.wms.controller;
 
 import com.wms.dto.ProductDto;
 import com.wms.service.ProductService;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -18,42 +17,40 @@ public class ProductController {
         this.productService = productService;
     }
 
-    // GET /api/products - list all products (ADMIN only by SecurityConfig)
+    // GET all products
     @GetMapping
-    public ResponseEntity<List<ProductDto>> getAll() {
-        return ResponseEntity.ok(productService.getAll());
+    public List<ProductDto> getAll() {
+        return productService.getAll();
     }
 
-    // POST /api/products - create
+    // GET single product
+    @GetMapping("/{id}")
+    public ProductDto getById(@PathVariable Long id) {
+        return productService.getById(id);
+    }
+
+    // CREATE
     @PostMapping
-    public ResponseEntity<?> create(@RequestBody ProductDto dto) {
-        try {
-            ProductDto created = productService.create(dto);
-            return ResponseEntity.ok(created);
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+    public ProductDto create(@RequestBody ProductDto dto) {
+        return productService.create(dto);
     }
 
-    // PUT /api/products/{id} - update
+    // UPDATE
     @PutMapping("/{id}")
-    public ResponseEntity<?> update(@PathVariable Long id, @RequestBody ProductDto dto) {
-        try {
-            ProductDto updated = productService.update(id, dto);
-            return ResponseEntity.ok(updated);
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+    public ProductDto update(@PathVariable Long id, @RequestBody ProductDto dto) {
+        dto.setId(id);
+        return productService.update(id, dto);
     }
 
-    // DELETE /api/products/{id} - delete
+    // DELETE
     @DeleteMapping("/{id}")
-    public ResponseEntity<?> delete(@PathVariable Long id) {
-        try {
-            productService.delete(id);
-            return ResponseEntity.noContent().build();
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+    public void delete(@PathVariable Long id) {
+        productService.delete(id);
+    }
+
+    // NEAR-EXPIRY
+    @GetMapping("/near-expiry")
+    public List<ProductDto> getNearExpiry(@RequestParam(defaultValue = "7") int days) {
+        return productService.getNearExpiry(days);
     }
 }

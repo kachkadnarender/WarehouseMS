@@ -4,11 +4,13 @@ import com.wms.dto.ProductDto;
 import com.wms.entity.Product;
 import com.wms.repository.ProductRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
+@Transactional
 public class ProductService {
 
     private final ProductRepository productRepo;
@@ -17,75 +19,85 @@ public class ProductService {
         this.productRepo = productRepo;
     }
 
-    // Entity -> DTO
+    // ---- Mapping helpers ----
+
     private ProductDto toDto(Product p) {
         return new ProductDto(
                 p.getId(),
                 p.getName(),
                 p.getSku(),
                 p.getStockQuantity(),
-                p.getPrice()
+                p.getPrice(),
+                p.getLocationCode(),
+                p.isPerishable(),
+                p.getExpiryDate()
         );
     }
 
-    // DTO -> Entity (for CREATE)
-    private Product fromDto(ProductDto dto) {
-        Product p = new Product();
+    private void updateEntityFromDto(Product p, ProductDto dto) {
         p.setName(dto.getName());
         p.setSku(dto.getSku());
         p.setStockQuantity(dto.getStockQuantity());
-
-        // ⬇️ important: never leave price null
-        Double price = dto.getPrice();
-        if (price == null) {
-            price = 0.0;
-        }
-        p.setPrice(price);
-
-        return p;
+        p.setPrice(dto.getPrice());
+        p.setLocationCode(dto.getLocationCode());
+        p.setPerishable(dto.isPerishable());
+        p.setExpiryDate(dto.getExpiryDate());
     }
 
+    // ---- CRUD ----
+
+    @Transactional(readOnly = true)
     public List<ProductDto> getAll() {
         return productRepo.findAll()
                 .stream()
                 .map(this::toDto)
-                .collect(Collectors.toList());
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public ProductDto getById(Long id) {
+        Product p = productRepo.findById(id)
+                .orElseThrow(() -> new RuntimeException("Product not found: " + id));
+        return toDto(p);
     }
 
     public ProductDto create(ProductDto dto) {
-        if (productRepo.existsBySku(dto.getSku())) {
-            throw new RuntimeException("SKU already exists");
-        }
-        Product saved = productRepo.save(fromDto(dto));
+        Product p = new Product();
+        updateEntityFromDto(p, dto);
+        Product saved = productRepo.save(p);
         return toDto(saved);
     }
 
     public ProductDto update(Long id, ProductDto dto) {
         Product existing = productRepo.findById(id)
-                .orElseThrow(() -> new RuntimeException("Product not found"));
+                .orElseThrow(() -> new RuntimeException("Product not found: " + id));
 
-        if (!existing.getSku().equals(dto.getSku())
-                && productRepo.existsBySku(dto.getSku())) {
-            throw new RuntimeException("SKU already exists");
-        }
-
-        existing.setName(dto.getName());
-        existing.setSku(dto.getSku());
-        existing.setStockQuantity(dto.getStockQuantity());
-
-        Double price = dto.getPrice();
-        if (price == null) {
-            price = 0.0;
-        }
-        existing.setPrice(price);
-
-        return toDto(productRepo.save(existing));
+        updateEntityFromDto(existing, dto);
+        Product saved = productRepo.save(existing);
+        return toDto(saved);
     }
 
     public void delete(Long id) {
         if (!productRepo.existsById(id)) {
-            throw new RuntimeException("Product not found");
+            throw new RuntimeException("Product not found: " + id);
         }
         productRepo.deleteById(id);
+    }
+
+    // ---- Near-expiry products ----
+
+    @Transactional(readOnly = true)
+    public List<ProductDto> getNearExpiry(int days) {
+        if (days <= 0) {
+            days = 7;
+        }
+        LocalDate today = LocalDate.now();
+        LocalDate limit = today.plusDays(days);
+
+        return productRepo
+                .findByPerishableTrueAndExpiryDateBetween(today, limit)
+                .stream()
+                .map(this::toDto)
+                .toList();
     }
 }
