@@ -19,19 +19,21 @@ public class SalesOrderService {
     private final SalesOrderRepository soRepo;
     private final ProductRepository productRepo;
     private final StockMovementService stockMovementService;
+    private final EmailService emailService;
 
     public SalesOrderService(SalesOrderRepository soRepo,
                              ProductRepository productRepo,
-                             StockMovementService stockMovementService) {
+                             StockMovementService stockMovementService,
+                             EmailService emailService) {
         this.soRepo = soRepo;
         this.productRepo = productRepo;
         this.stockMovementService = stockMovementService;
+        this.emailService = emailService;
     }
 
-    // Generate SO number based on how many SOs already exist in DB
-    // Example: SO-2025-0001, SO-2025-0002, ...
+    // Simple SO number generator: SO-2025-0001, etc.
     private String generateSoNumber() {
-        long count = soRepo.count() + 1;   // if 1 row exists, next is 2
+        long count = soRepo.count() + 1;
         int year = LocalDate.now().getYear();
         return "SO-" + year + "-" + String.format("%04d", count);
     }
@@ -50,6 +52,7 @@ public class SalesOrderService {
                 so.getId(),
                 so.getSoNumber(),
                 so.getCustomerName(),
+                so.getCustomerEmail(),
                 so.getStatus(),
                 so.getCreatedAt(),
                 so.getConfirmedAt(),
@@ -66,6 +69,7 @@ public class SalesOrderService {
         SalesOrder so = new SalesOrder();
         so.setSoNumber(generateSoNumber());
         so.setCustomerName(dto.getCustomerName());
+        so.setCustomerEmail(dto.getCustomerEmail());
         so.setStatus(SalesOrderStatus.NEW);
         so.setCreatedAt(LocalDateTime.now());
 
@@ -106,15 +110,16 @@ public class SalesOrderService {
 
         if (so.getStatus() == SalesOrderStatus.CONFIRMED
                 || so.getStatus() == SalesOrderStatus.SHIPPED
-                || so.getStatus() == SalesOrderStatus.COMPLETED) {
-            throw new RuntimeException("Sales order already confirmed/shipped/completed.");
+                || so.getStatus() == SalesOrderStatus.COMPLETED
+                || so.getStatus() == SalesOrderStatus.CANCELLED) {
+            throw new RuntimeException("Sales order already processed/cancelled.");
         }
 
         if (so.getItems() == null || so.getItems().isEmpty()) {
             throw new RuntimeException("Sales order has no items.");
         }
 
-        // For each item, adjust stock OUT (will also validate stock >= quantity)
+        // For each item, adjust stock OUT
         for (SalesOrderItem item : so.getItems()) {
             stockMovementService.adjustStock(
                     item.getProduct().getId(),
@@ -126,6 +131,28 @@ public class SalesOrderService {
 
         so.setStatus(SalesOrderStatus.CONFIRMED);
         so.setConfirmedAt(LocalDateTime.now());
+
+        SalesOrder saved = soRepo.save(so);
+
+        // 🔔 send confirmation email
+        emailService.sendSalesOrderConfirmed(saved);
+
+        return toDto(saved);
+    }
+
+    @Transactional
+    public SalesOrderDto markOutOfStock(Long id) {
+        SalesOrder so = soRepo.findById(id)
+                .orElseThrow(() -> new RuntimeException("Sales order not found"));
+
+        // Just mark as cancelled, no stock changes
+        so.setStatus(SalesOrderStatus.CANCELLED);
+        so.setConfirmedAt(null);
+
+        SalesOrder saved = soRepo.save(so);
+
+        // 🔔 send cancellation email
+        emailService.sendSalesOrderConfirmed(so);
 
         return toDto(so);
     }

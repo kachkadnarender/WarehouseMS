@@ -8,9 +8,9 @@ import com.wms.repository.PurchaseOrderRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 @Service
@@ -19,20 +19,23 @@ public class PurchaseOrderService {
     private final PurchaseOrderRepository poRepo;
     private final ProductRepository productRepo;
     private final StockMovementService stockMovementService;
+    private final EmailService emailService;
+
 
     public PurchaseOrderService(PurchaseOrderRepository poRepo,
                                 ProductRepository productRepo,
-                                StockMovementService stockMovementService) {
+                                StockMovementService stockMovementService,
+                                EmailService emailService) {
         this.poRepo = poRepo;
         this.productRepo = productRepo;
         this.stockMovementService = stockMovementService;
+        this.emailService = emailService;
     }
 
-    // Generate PO number based on how many POs already exist in DB
-    // Example: PO-2025-0001, PO-2025-0002, ...
+    // Simple PO number generator: PO-2025-0001, etc.
     private String generatePoNumber() {
-        long count = poRepo.count() + 1;   // if 1 row exists, next is 2
-        int year = LocalDate.now().getYear();
+        long count = poRepo.count() + 1; // e.g. if you have 2 rows, next is 3
+        int year = java.time.LocalDate.now().getYear();
         return "PO-" + year + "-" + String.format("%04d", count);
     }
 
@@ -50,6 +53,7 @@ public class PurchaseOrderService {
                 po.getId(),
                 po.getPoNumber(),
                 po.getVendorName(),
+                po.getVendorEmail(),          // 👈 NEW
                 po.getStatus(),
                 po.getExpectedDate(),
                 po.getCreatedAt(),
@@ -67,6 +71,7 @@ public class PurchaseOrderService {
         PurchaseOrder po = new PurchaseOrder();
         po.setPoNumber(generatePoNumber());
         po.setVendorName(dto.getVendorName());
+        po.setVendorEmail(dto.getVendorEmail());   // 👈 NEW
         po.setExpectedDate(dto.getExpectedDate());
         po.setStatus(PurchaseOrderStatus.DRAFT);
         po.setCreatedAt(LocalDateTime.now());
@@ -87,6 +92,10 @@ public class PurchaseOrderService {
         po.setItems(items);
 
         PurchaseOrder saved = poRepo.save(po);
+
+        // 📧 Email actual vendor
+        emailService.sendPurchaseOrderCreated(saved);
+
         return toDto(saved);
     }
 

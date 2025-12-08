@@ -3,7 +3,6 @@ package com.wms.entity;
 import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -14,43 +13,91 @@ public class SalesOrder {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // Human-readable e.g. SO-2025-0001
-    @Column(nullable = false, unique = true)
+    @Column(name = "so_number", nullable = false, unique = true)
     private String soNumber;
 
-    @Column(nullable = false)
+    @Column(name = "customer_name", nullable = false)
     private String customerName;
 
+    @Column(name = "customer_email")
+    private String customerEmail; // 👈 NEW
+
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(name = "status", nullable = false)
     private SalesOrderStatus status;
 
+    @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
+
+    @Column(name = "confirmed_at")
     private LocalDateTime confirmedAt;
 
-    @OneToMany(mappedBy = "salesOrder", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<SalesOrderItem> items = new ArrayList<>();
+    @OneToMany(mappedBy = "salesOrder", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private List<SalesOrderItem> items;
 
-    // --- GETTERS & SETTERS ---
+    // ===== GETTERS & SETTERS =====
 
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public Long getId() {
+        return id;
+    }
 
-    public String getSoNumber() { return soNumber; }
-    public void setSoNumber(String soNumber) { this.soNumber = soNumber; }
+    public String getSoNumber() {
+        return soNumber;
+    }
 
-    public String getCustomerName() { return customerName; }
-    public void setCustomerName(String customerName) { this.customerName = customerName; }
+    public void setSoNumber(String soNumber) {
+        this.soNumber = soNumber;
+    }
 
-    public SalesOrderStatus getStatus() { return status; }
-    public void setStatus(SalesOrderStatus status) { this.status = status; }
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public String getCustomerName() {
+        return customerName;
+    }
 
-    public LocalDateTime getConfirmedAt() { return confirmedAt; }
-    public void setConfirmedAt(LocalDateTime confirmedAt) { this.confirmedAt = confirmedAt; }
+    public void setCustomerName(String customerName) {
+        this.customerName = customerName;
+    }
 
-    public List<SalesOrderItem> getItems() { return items; }
-    public void setItems(List<SalesOrderItem> items) { this.items = items; }
+    public String getCustomerEmail() {
+        return customerEmail;
+    }
+
+    public void setCustomerEmail(String customerEmail) {
+        this.customerEmail = customerEmail;
+    }
+
+    public SalesOrderStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(SalesOrderStatus status) {
+        this.status = status;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public LocalDateTime getConfirmedAt() {
+        return confirmedAt;
+    }
+
+    public void setConfirmedAt(LocalDateTime confirmedAt) {
+        this.confirmedAt = confirmedAt;
+    }
+
+    public List<SalesOrderItem> getItems() {
+        return items;
+    }
+
+    public void setItems(List<SalesOrderItem> items) {
+        this.items = items;
+    }
 }

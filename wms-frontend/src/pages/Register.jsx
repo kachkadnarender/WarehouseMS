@@ -1,4 +1,3 @@
-// wms-frontend/src/pages/Register.jsx
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -6,8 +5,9 @@ import axios from 'axios';
 export default function Register() {
   const [form, setForm] = useState({
     username: '',
+    email: '',
     password: '',
-    role: 'CUSTOMER'
+    role: 'CUSTOMER',
   });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -52,6 +52,14 @@ export default function Register() {
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none"
               value={form.username}
               onChange={(e) => setForm({ ...form, username: e.target.value })}
+              required
+            />
+            <input
+              type="email"
+              placeholder="Email"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
               required
             />
             <input

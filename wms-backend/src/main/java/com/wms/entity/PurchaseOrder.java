@@ -15,55 +15,98 @@ public class PurchaseOrder {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // Human readable: e.g. PO-2025-0001
-    @Column(nullable = false, unique = true)
+    @Column(name = "po_number", nullable = false, unique = true)
     private String poNumber;
 
-    @Column(nullable = false)
+    @Column(name = "vendor_name", nullable = false)
     private String vendorName;
+
+    @Column(name = "vendor_email")
+    private String vendorEmail;   // 👈 NEW
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private PurchaseOrderStatus status;
 
+    @Column(name = "expected_date")
     private LocalDate expectedDate;
+
+    @Column(name = "created_at")
     private LocalDateTime createdAt;
+
+    @Column(name = "received_at")
     private LocalDateTime receivedAt;
 
     @OneToMany(mappedBy = "purchaseOrder", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<PurchaseOrderItem> items = new ArrayList<>();
 
-    // --- GETTERS & SETTERS ---
+    // ---- GETTERS & SETTERS ----
 
-    public Long getId() { return id; }
+    public Long getId() {
+        return id;
+    }
 
-    public void setId(Long id) { this.id = id; }
+    public String getPoNumber() {
+        return poNumber;
+    }
 
-    public String getPoNumber() { return poNumber; }
+    public void setPoNumber(String poNumber) {
+        this.poNumber = poNumber;
+    }
 
-    public void setPoNumber(String poNumber) { this.poNumber = poNumber; }
+    public String getVendorName() {
+        return vendorName;
+    }
 
-    public String getVendorName() { return vendorName; }
+    public void setVendorName(String vendorName) {
+        this.vendorName = vendorName;
+    }
 
-    public void setVendorName(String vendorName) { this.vendorName = vendorName; }
+    public String getVendorEmail() {
+        return vendorEmail;
+    }
 
-    public PurchaseOrderStatus getStatus() { return status; }
+    public void setVendorEmail(String vendorEmail) {
+        this.vendorEmail = vendorEmail;
+    }
 
-    public void setStatus(PurchaseOrderStatus status) { this.status = status; }
+    public PurchaseOrderStatus getStatus() {
+        return status;
+    }
 
-    public LocalDate getExpectedDate() { return expectedDate; }
+    public void setStatus(PurchaseOrderStatus status) {
+        this.status = status;
+    }
 
-    public void setExpectedDate(LocalDate expectedDate) { this.expectedDate = expectedDate; }
+    public LocalDate getExpectedDate() {
+        return expectedDate;
+    }
 
-    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setExpectedDate(LocalDate expectedDate) {
+        this.expectedDate = expectedDate;
+    }
 
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
 
-    public LocalDateTime getReceivedAt() { return receivedAt; }
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
 
-    public void setReceivedAt(LocalDateTime receivedAt) { this.receivedAt = receivedAt; }
+    public LocalDateTime getReceivedAt() {
+        return receivedAt;
+    }
 
-    public List<PurchaseOrderItem> getItems() { return items; }
+    public void setReceivedAt(LocalDateTime receivedAt) {
+        this.receivedAt = receivedAt;
+    }
 
-    public void setItems(List<PurchaseOrderItem> items) { this.items = items; }
+    public List<PurchaseOrderItem> getItems() {
+        return items;
+    }
+
+    public void setItems(List<PurchaseOrderItem> items) {
+        this.items = items;
+    }
 }
