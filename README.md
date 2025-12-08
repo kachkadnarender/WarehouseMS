@@ -1,30 +1,55 @@
-# WarehouseMS - Warehouse Management System
+# 🏬 Warehouse Management System (WMS)
 
-A full-stack Warehouse Management System (WMS) for efficient inventory control, order processing, and smart analytics. Built to handle everything from basic stock tracking to unique features like AI-driven predictions and expiry alerts.
+A full-stack **Warehouse Management System** built using **Spring Boot, PostgreSQL, React, JWT Security, and Email Notifications**.  
+This project manages products, inventory, purchase orders, sales orders, stock movements, picking slips, and automated email alerts.
 
-## Tech Stack
-- **Frontend**: React.js, HTML, CSS, JavaScript (with Material-UI for UI, Recharts for dashboards)
-- **Backend**: Java, Spring Boot (REST APIs, JPA for ORM)
-- **Database**: PostgreSQL (structured data for products, orders, transactions)
+---
 
-## Key Features
-1. **User Login & Role Management** – Secure auth with Admin and Customer roles.
-2. **Product & SKU Management** – CRUD operations for products with unique SKUs.
-3. **Inventory Tracking Dashboard** – Real-time views of stock levels and status.
-4. **Manual Stock In/Out Management** – Adjust quantities with full audit history.
-5. **Purchase Order (PO) Management** – Create, track, and receive POs with inventory updates.
-6. **Sales Order (SO) Management** – Handle customer orders and auto-deduct stock.
-7. **Warehouse Location Mapping** – Assign products to physical locations (aisle, rack, shelf).
-8. **Picking Slip (PDF Generation)** – Auto-generate printable pick lists for orders.
-9. **Smart Stock Prediction (Unique)** – Analyze historical data for proactive reorder alerts.
-10. **Product Expiry / Shelf-Life Tracker (Unique)** – Monitor perishables, send expiry alerts, and support FEFO picking.
+## ✅ Technologies Used
 
-## Local Development Setup
-### Prerequisites
-- Java 17+ (OpenJDK recommended)
-- Node.js 18+ (LTS)
-- PostgreSQL 14+ (local install or Docker)
-- Git, Maven, npm/yarn
+### Backend
+- Java 17  
+- Spring Boot (Maven)
+- Spring Security with JWT
+- Spring Data JPA & Hibernate
+- PostgreSQL Database
+- Java Mail Sender (SMTP – Gmail)
+- PDF Generation (Picking Slip)
 
-### Quick Start
-1. **Clone the Repo**:
+### Frontend
+- React.js (Vite)
+- Axios
+- React Router DOM
+- Tailwind CSS
+
+### Tools
+- Git & GitHub
+- Postman
+- PostgreSQL UI (pgAdmin / Postico / TablePlus)
+
+---
+
+## ✅ Key Features
+
+- ✅ User Login & Role Management (ADMIN / CUSTOMER)
+- ✅ Product & SKU Management
+- ✅ Inventory Tracking Dashboard
+- ✅ Manual Stock In / Stock Out
+- ✅ Purchase Order (PO) Management
+- ✅ Sales Order (SO) Management
+- ✅ Stock Movement History
+- ✅ Picking Slip PDF Generation
+- ✅ Warehouse Location Mapping
+- ✅ Product Expiry Tracking
+- ✅ Email Notifications:
+  - User Registration
+  - Sales Order Confirmation
+  - Purchase Order Created
+
+---
+
+## ✅ Backend Setup Instructions
+
+### 1️⃣ Create PostgreSQL Database
+```sql
+CREATE DATABASE wms_db;
